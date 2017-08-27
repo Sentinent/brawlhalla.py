@@ -4,8 +4,8 @@ import asyncio
 async def main():
     with open("key.txt", "r") as f:
         client = BrawlhallaClient(f.read())
-    page = await client.get_ranked_page("1v1", "all", 3)
-    print(page)
+    player = await client.get_player_ranked_stats(1312150)
+    print(player.name)
 
 
 if __name__ == "__main__":

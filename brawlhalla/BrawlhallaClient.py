@@ -117,16 +117,27 @@ class BrawlhallaClient:
     async def get_ranked_page(self, bracket, region, page=1, name=None):
         """
         Sends a request to get a ranked page.
-        :param bracket:
+        :param str bracket:
             The ranked bracket to get, one of ``1v1`` or ``2v2``.
-        :param region: 
+        :param str region: 
             The region to get, one of ``us-w``, ``us-e``, ``eu``, ``brz``, ``aus``, ``sea``, or ``all`` for all.
-        :param page: 
+        :param int page: 
             The page number to get, minimum (and default) value is 1.
-        :param name: 
+        :param str name: The (optional) name to search for.
         :return: 
+            A ``list`` of ``Response`` objects, each with the following attributes: 
+            ``rank`` (int) - The rank of the player relative to the ``region``.
+            ``name``, ``brawlhalla_id``, ``best_legend``, ``a``, ``a``, 
+            ``a``, ``a``, ``a``, ``a``, ``a``, ``a``, ``a``, ``a``, ``a``.
         """
-        return await self.__send_request("rankings/{}/{}/{}", bracket, region, page, name=name)
+        responses = await self.__send_request("rankings/{}/{}/{}", bracket, region, page, name=name)
+
+        #  Post processing, convert the string "rank" attribute into an integer.
+        if responses:
+            for response in responses.responses:
+                response.rank = int(response.rank)
+
+        return responses
 
     async def get_player_stats(self, brawlhalla_id: int):
         return await self.__send_request("player/{}/stats", brawlhalla_id)

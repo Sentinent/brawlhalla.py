@@ -76,6 +76,10 @@ class Response:
         if type(data) is list:
             self.responses = [Response(x) for x in data]
         elif type(data) is dict:
+            if "name" in data.keys():
+                #  Fix emojis in name
+                data["name"] = data["name"].encode("raw_unicode_escape").decode("utf-8")
+
             self.__dict__ = data
         else:
             raise NotImplementedError(f"Unsupported data type: {type(data)}")
