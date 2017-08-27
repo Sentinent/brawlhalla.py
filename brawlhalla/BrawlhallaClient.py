@@ -1,76 +1,63 @@
+import asyncio
 import aiohttp
 import async_timeout
-from enum import Enum
 
-
-class Legends(Enum):
-    BODVAR = 3,
-    CASSIDY = 4,
-    ORION = 5,
-    LORDVRAXX = 6,
-    GNASH = 7,
-    QUEENNAI = 8,
-    LUCIEN = 9,
-    HATTORI = 10,
-    SIRROLAND = 11,
-    SCARLET = 12,
-    THATCH = 13,
-    ADA = 14,
-    SENTINEL = 15,
-    TEROS = 16,  # 17 does not exist
-    EMBER = 18,
-    BRYNN = 19,
-    ASURI = 20,
-    BARRAZA = 21,
-    ULGRIM = 22,  # God = 22
-    AZOTH = 23,
-    KOJI = 24,
-    DIANA = 25,
-    JHALA = 26,  # 27 doesn't exist either
-    KOR = 28,
-    WUSHANG = 29,
-    VAL = 30,
-    RAGNIR = 31,
-    CROSS = 32,
-    MIRAGE = 33,
-    NIX = 34,
-    MORDEX = 35,
-    YUMIKO = 36,
-    ARTEMIS = 37,
-    CASPIAN = 38,
-
-    NONEXISTANT = 9001  # for tests
+from brawlhalla.RateBucket import RateBucket
+from brawlhalla.API import BrawlhallaPyException, Response, Legends
 
 
 class ClientOptions:
-    requests_per_15_minutes: int = 180
-    requests_per_60_seconds: int = 10
+    """
+    Optional configurations to be used by the :class:`BrawlhallaClient`.
+
+
+    requests_per_15_minutes : int
+        Requests allowed per 15 minutes, default value is 180.
+
+
+    """
+
+    requests_per_15_minutes: int = 180  #: aaaaaa
+
+    requests_per_second: int = 10
+    """Requests allowed per second, default value is 10."""
+
+    use_internal_ratelimiter: bool = True
+    """
+    Whether or not to use the client's internal ratelimiter. Before hitting a ratelimit, the client will wait
+    until it can make more requests. Default value is True.
+    """
+
     max_timeout_time: int = 10
-    swallow_429: bool = True
+    """Max amount of time to wait (in seconds) for a request, default value is 10."""
+
     propagate_exceptions: bool = True
+    """
+    If True, exceptions will be propagated to the caller, :attr:`ClientOptions.swallow_429` overrides this setting. 
+    Default value is True.
+    """
 
+    swallow_429: bool = True
+    """
+    If True, rate limit exceptions will not be propagated to the caller, instead, None will be returned. Default 
+    value is True.
+    """
 
-class Response:
-    def __init__(self, data):
-        if type(data) is list:
-            self.responses = data
-        elif type(data) is dict:
-            self.__dict__ = data
-        else:
-            raise NotImplementedError(f"Unsupported data type: {type(data)}")
+    retry_on_429: bool = True
+    """
+    If true, rate limited requests will automatically be retried in :attr:`ClientOptions.retry_delay`. Default 
+    value is False.
+    """
 
-
-class BrawlhallaPyException(Exception):
-    def __init__(self, status_code: int, reason: str, detailed_reason: str):
-        self.status_code = status_code
-        self.reason = reason
-        self.detailed_reason = detailed_reason
+    retry_delay = 60
+    """The amount of time (in seconds) to wait before retrying a rate limited request. Default value is 60."""
 
 
 class BrawlhallaClient:
     def __init__(self, api_key: str, client_options: ClientOptions = ClientOptions()):
         self.api_key = api_key
         self.options = client_options
+        self.bucket = RateBucket(self.options.requests_per_15_minutes, self.options.requests_per_second)
 
         self.session = aiohttp.ClientSession()
 
@@ -96,7 +83,6 @@ class BrawlhallaClient:
 
         try:
             with async_timeout.timeout(self.options.max_timeout_time):
-
                     async with self.session.get(endpoint) as response:
                         if response.status != 200:
                             data = await response.json()
@@ -107,7 +93,7 @@ class BrawlhallaClient:
                             raise BrawlhallaPyException(response.status, response.reason, detailed_error)
                         else:  # success
                             return Response(await response.json())
-        except TimeoutError:
+        except asyncio.TimeoutError:
             return None
 
     async def get_player_from_steam_id(self, steam_id: int):
