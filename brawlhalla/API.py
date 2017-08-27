@@ -1,8 +1,8 @@
 from enum import Enum
 
 """
-This module contains all the components of brawlhalla, but you should really only need to use 
-:class:`BrawlhallaClient`, :class:`ClientOptions`, and :class:`Legends`.
+This module contains all the components that brawlhalla.py uses. Useful classes to import include 
+:class:`Legends`, :class:`Response`, and :class:`BrawlhallaPyException.
 """
 
 
@@ -53,8 +53,8 @@ class Legends(Enum):
 
 class Response:
     """
-    Represents a response whose attributes are as returned by brawlhalla brawlhalla.
-    Read the `brawlhalla brawlhalla documentation <http://dev.brawlhalla.com/>`_ for the name of attributes.
+    Represents a response whose attributes are as returned by Brawlhalla API.
+    Read the `Brawlhalla documentation <http://dev.brawlhalla.com/>`_ for the name of attributes.
     
     .. note::
         Single object responses (e.g. from :func:`BrawlhallaClient.get_player_from_steam_id`) will be returned as 
@@ -82,7 +82,16 @@ class Response:
 
 
 class BrawlhallaPyException(Exception):
-    """An exception that signifies something went wrong when sending a request."""
+    """
+    An exception that signifies something went wrong when sending a request.
+    
+    status_code : int
+        The HTTP status code of the failure.
+    reason : str
+        The HTTP header reason for the failure.
+    detailed_reason : str
+        The detailed reason returned by the Brawlhalla API (if available).      
+    """
     def __init__(self, status_code: int, reason: str, detailed_reason: str):
         self.status_code = status_code
         self.reason = reason

@@ -10,50 +10,54 @@ class ClientOptions:
     """
     Optional configurations to be used by the :class:`BrawlhallaClient`.
 
-
     requests_per_15_minutes : int
         Requests allowed per 15 minutes, default value is 180.
 
+    requests_per_second : int
+        Requests allowed per second, default value is 10.
+        
+    use_internal_ratelimiter : bool
+        Whether or not to use the client's internal ratelimiter. Before hitting a ratelimit, the client will wait
+        until it can make more requests. Default value is True.
 
+    max_timeout_time : int
+        Max amount of time to wait (in seconds) for a request, default value is 10. If the connection timeout is hit, 
+        the corooutine will return None.
+        
+    propagate_exceptions : bool
+        If True, exceptions will be propagated to the caller, :attr:`ClientOptions.swallow_429` overrides this setting. 
+        If set to false, errors will return None instead of raising an exception. Default value is True.
+        
+    swallows_429 : bool
+        If True, rate limit exceptions will not be propagated to the caller, instead, None will be returned. Default 
+        value is True.
+        
+    retry_on_429 : bool
+        If true, rate limited requests will automatically be retried in :attr:`ClientOptions.retry_delay`. Default 
+        value is False.
+        
+    retry_delay : int
+        The amount of time (in seconds) to wait before retrying a rate limited request. Default value is 60.
+        
     """
 
-    requests_per_15_minutes: int = 180  #: aaaaaa
-
+    requests_per_15_minutes: int = 180
     requests_per_second: int = 10
-    """Requests allowed per second, default value is 10."""
-
     use_internal_ratelimiter: bool = True
-    """
-    Whether or not to use the client's internal ratelimiter. Before hitting a ratelimit, the client will wait
-    until it can make more requests. Default value is True.
-    """
-
     max_timeout_time: int = 10
-    """Max amount of time to wait (in seconds) for a request, default value is 10."""
-
     propagate_exceptions: bool = True
-    """
-    If True, exceptions will be propagated to the caller, :attr:`ClientOptions.swallow_429` overrides this setting. 
-    Default value is True.
-    """
-
     swallow_429: bool = True
-    """
-    If True, rate limit exceptions will not be propagated to the caller, instead, None will be returned. Default 
-    value is True.
-    """
-
-    retry_on_429: bool = True
-    """
-    If true, rate limited requests will automatically be retried in :attr:`ClientOptions.retry_delay`. Default 
-    value is False.
-    """
-
+    retry_on_429: bool = False
     retry_delay = 60
-    """The amount of time (in seconds) to wait before retrying a rate limited request. Default value is 60."""
 
 
 class BrawlhallaClient:
+    """
+    The client used to make requests to the Brawlhalla API. An optional :class:`ClientOptions` may be 
+    passed to the constructor for more customization of the client's behavior. For example, 
+    ``client = BrawlhallaClient(api_key, client_options: opts)``.
+    """
+
     def __init__(self, api_key: str, client_options: ClientOptions = ClientOptions()):
         self.api_key = api_key
         self.options = client_options
@@ -67,7 +71,7 @@ class BrawlhallaClient:
     def __resolve_query_params(self, **kvargs) -> str:
         query_params = ""
         kvargs["api_key"] = self.api_key
-        for key in kvargs:
+        for key in [x for x in kvargs if kvargs[x]]:  # Filter out Nones
             if len(query_params) == 0:
                 query_params += f"?{key}={kvargs[key]}"
             else:
@@ -97,9 +101,31 @@ class BrawlhallaClient:
             return None
 
     async def get_player_from_steam_id(self, steam_id: int):
+        """
+        Sends a request to get a player's Brawlhalla ID from a Steam ID.
+        
+        :param int steam_id:
+            The Steam ID of the player to get the Brawlhalla ID for.
+        :return: 
+            A :class:`API.Response` object with the attributes ``brawlhalla_id`` and ``name``, or ``None`` if the 
+            request timed out.
+        :raises API.BrawlhallaPyException:
+            if something went wrong with the request.
+        """
         return await self.__send_request("search", steamid=steam_id)
 
-    async def get_ranked_page(self, bracket, region, page, name=None):
+    async def get_ranked_page(self, bracket, region, page=1, name=None):
+        """
+        Sends a request to get a ranked page.
+        :param bracket:
+            The ranked bracket to get, one of ``1v1`` or ``2v2``.
+        :param region: 
+            The region to get, one of ``us-w``, ``us-e``, ``eu``, ``brz``, ``aus``, ``sea``, or ``all`` for all.
+        :param page: 
+            The page number to get, minimum (and default) value is 1.
+        :param name: 
+        :return: 
+        """
         return await self.__send_request("rankings/{}/{}/{}", bracket, region, page, name=name)
 
     async def get_player_stats(self, brawlhalla_id: int):
