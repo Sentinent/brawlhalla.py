@@ -1,12 +1,12 @@
-from brawlhalla import BrawlhallaClient, ClientOptions
 import asyncio
+from brawlhalla import BrawlhallaClient
 
 async def main():
     with open("key.txt", "r") as f:
-        opts = ClientOptions()
-        opts.retry_on_429 = True
-        opts.retry_delay = 5
-        client = BrawlhallaClient(f.read(), client_options=opts)
+        client = BrawlhallaClient(f.read())
+
+    player = await client.get_player_ranked_stats(1297647)
+    print(player.name)
 
 
 if __name__ == "__main__":

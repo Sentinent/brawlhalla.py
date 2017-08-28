@@ -57,6 +57,10 @@ class BrawlhallaClient:
     The client used to make requests to the Brawlhalla API. An optional :class:`ClientOptions` may be 
     passed to the constructor for more customization of the client's behavior. For example, 
     ``client = BrawlhallaClient(api_key, client_options: opts)``.
+    
+    The client has a built-in ratelimiter to prevent you from going over your maximum allotted requests. If you have 
+    an elevated ratelimit, you can pass those to the client in the :class:`ClientOptions`.
+    
     """
 
     def __init__(self, api_key: str, client_options: ClientOptions = ClientOptions()):
@@ -314,6 +318,7 @@ class BrawlhallaClient:
         .. note::
             ``clan_create_date`` and ``join_date`` are both datetime objects from the built-in Python library in 
              UTC format.
+
         """
         response = await self.__send_request("clan/{}", clan_id)
 

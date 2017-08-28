@@ -2,7 +2,7 @@ from enum import Enum
 
 """
 This module contains all the components that brawlhalla.py uses. Useful classes to import include 
-:class:`Legends`, :class:`Response`, and :class:`BrawlhallaPyException.
+:class:`Legends`, :class:`Response`, and :class:`BrawlhallaPyException`.
 """
 
 
@@ -57,8 +57,8 @@ class Response:
     Read the `Brawlhalla documentation <http://dev.brawlhalla.com/>`_ for the name of attributes.
     
     .. note::
-        Single object responses (e.g. from :func:`BrawlhallaClient.get_player_from_steam_id`) will be returned as 
-        an object whose attributes are 1:1 with the api.
+        Single object responses (e.g. from :func:`brawlhalla.BrawlhallaClient.get_player_from_steam_id`) will be 
+        returned as an object whose attributes are 1:1 with the api.
         For example, if the response was::
 
             {
@@ -69,8 +69,8 @@ class Response:
         , ``response_object.brawlhalla_id`` would be 2.
         
     .. note::
-        For endpoints that return a JSON array, such as :func:`BrawlhallaClient.get_ranked_page`, you will have 
-        to access the data from ``response_object.responses``, which will be a ``list`` of ``Response`` objects.
+        For endpoints that return a JSON array, such as :func:`brawlhalla.BrawlhallaClient.get_ranked_page`, you will 
+        have to access the data from ``response_object.responses``, which will be a ``list`` of ``Response`` objects.
     """
     def __init__(self, data):
         if type(data) is list:
