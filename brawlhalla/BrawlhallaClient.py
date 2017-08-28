@@ -45,7 +45,7 @@ class ClientOptions:
     requests_per_15_minutes: int = 180
     requests_per_second: int = 10
     use_internal_ratelimiter: bool = True
-    max_timeout_time: int = 10
+    max_timeout_time: int = None
     propagate_exceptions: bool = True
     swallow_429: bool = True
     retry_on_429: bool = False
@@ -62,7 +62,11 @@ class BrawlhallaClient:
     def __init__(self, api_key: str, client_options: ClientOptions = ClientOptions()):
         self.api_key = api_key
         self.options = client_options
-        self.bucket = RateBucket(self.options.requests_per_15_minutes, self.options.requests_per_second)
+
+        if self.options.use_internal_ratelimiter:
+            self.bucket = RateBucket(self.options.requests_per_15_minutes, self.options.requests_per_second)
+        else:
+            self.bucket = None
 
         self.session = aiohttp.ClientSession()
 
@@ -84,22 +88,45 @@ class BrawlhallaClient:
         return f"https://api.brawlhalla.com/{endpoint.format(*args)}/{self.__resolve_query_params(**kvargs)}"
 
     async def __send_request(self, endpoint, *args, **kvargs):
+        if self.options.use_internal_ratelimiter:
+            while not self.bucket.can_request():
+                await asyncio.sleep(self.bucket.get_next_request())
+            self.bucket.do_request()
+
         endpoint = self.__resolve_endpoint(endpoint, *args, **kvargs)
 
         try:
             with async_timeout.timeout(self.options.max_timeout_time):
-                    async with self.session.get(endpoint) as response:
-                        if response.status != 200:
-                            data = await response.json()
-                            detailed_error = "No further details."
-                            if data:
-                                detailed_error = data["error"]["message"]
+                async with self.session.get(endpoint) as response:
+                    if response.status == 200:
+                        return Response(await response.json())
 
-                            raise BrawlhallaPyException(response.status, response.reason, detailed_error)
-                        else:  # success
-                            return Response(await response.json())
+                    elif response.status == 429:
+                        if self.options.swallow_429:
+                            if self.options.retry_on_429:
+                                await asyncio.sleep(self.options.retry_delay)
+                                return await self.__send_request(endpoint, *args, **kvargs)
+                            else:
+                                print("A")
+                                return None
+
+                        raise BrawlhallaPyException(429, "Too Many Requests", "Your API key has hit the rate limit.")
+
+                    else:
+                        data = await response.json()
+                        detailed_error = "No further details."
+                        if data:
+                            detailed_error = data["error"]["message"]
+
+                        raise BrawlhallaPyException(response.status, response.reason, detailed_error)
         except asyncio.TimeoutError:
             return None
+        except Exception as e:
+            # If the option to propagate exceptions is True, raise the exception. Else, just return None.
+            if self.options.propagate_exceptions:
+                raise e
+            else:
+                return None
 
     async def get_player_from_steam_id(self, steam_id: int):
         """
