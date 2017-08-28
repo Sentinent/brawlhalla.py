@@ -82,9 +82,6 @@ class Response:
             elif "teamname" in data.keys():
                 data["teamname"] = data["teamname"].encode("raw_unicode_escape").decode("utf-8")
 
-            if "2v2" in data.keys():
-                self.two_vs_two = data["2v2"]
-
             for key in data:
                 if type(data[key]) is list:
                     data[key] = [Response(x) for x in data[key]]

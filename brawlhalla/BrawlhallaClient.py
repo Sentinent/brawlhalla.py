@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import async_timeout
 
+from datetime import datetime
 from brawlhalla.RateBucket import RateBucket
 from brawlhalla.API import BrawlhallaPyException, Response, Legends
 
@@ -152,6 +153,9 @@ class BrawlhallaClient:
             ``region`` (str) - One of ``US-W``, ``US-E``, ``EU``, ``BRZ``, ``AUS``, or ``SEA``.
             
             ``peak_rating`` (int) - The highest elo the player has achieved this season.
+            
+        :raises API.BrawlhallaPyException:
+            if something went wrong with the request.
         """
 
         responses = await self.__send_request("rankings/{}/{}/{}", bracket, region, page, name=name)
@@ -174,7 +178,7 @@ class BrawlhallaClient:
             ``name`` (str), ``xp`` (int), ``level`` (int), ``xp_percentage`` (int), ``games`` (int), 
             ``wins`` (int), ``damagebomb`` (int), ``damagemine`` (int), ``damagespikeball`` (int), 
             ``damagesidekick`` (str), ``hitsnowball`` (int), ``kobomb`` (int), ``komine`` (int), ``kospikeball`` (int), 
-            ``kosidekick`` (int), ``kosnowball`` (int), ``legends`` (``list`` of ``objects``, see below), 
+            ``kosidekick`` (int), ``kosnowball`` (int), ``legends`` (``list`` of objects, see below), 
             and ``clan`` (see below).
         :raises API.BrawlhallaPyException:
             if something went wrong with the request.
@@ -219,14 +223,16 @@ class BrawlhallaClient:
         """
         Sends a request to get the ranked stats of a player for the current season.
         
-        :param brawlhalla_id: 
+        :param int brawlhalla_id: 
             The Brawlhalla ID of the player to get information for.
         :return: 
             A :class:`API.Response` object with the following attributes: ``name`` (str), ``brawlhalla_id`` (int), 
             ``rating`` (int), ``peak_rating`` (int), ``tier`` (str, see the :ref:`Notes` section), ``wins`` (int), 
             ``games`` (int), ``region`` (str), ``global_rank`` (int), ``region_rank`` (int),  
-            ``legends`` (``list`` of ``legend`` objects, see below), and ``2v2`` (``list`` of ``objects``, see below).
-        
+            ``legends`` (``list`` of ``legend`` objects, see below), and ``2v2`` (``list`` of objects, see below).      
+        :raises API.BrawlhallaPyException:
+            if something went wrong with the request.
+            
         .. note::
             Unlike the ``legend`` objects from :func:`BrawlhallaClient.get_player_stats`, the ``legend`` objects from 
             this endpoint only has the following attributes: ``legend_id`` (int), ``legend_name_key`` (str), 
@@ -262,10 +268,108 @@ class BrawlhallaClient:
         return response
 
     async def get_clan(self, clan_id: int):
-        return await self.__send_request("clan/{}", clan_id)
+        """
+        Sends a request to get information for a clan.
+        
+        :param int clan_id: 
+            The clan ID to get information for.
+        :return: 
+            A :class:`API.Response` object with the following attributes: ``clan_id`` (int), ``clan_name`` (str), 
+            ``clan_create_date`` (datetime), ``clan_xp`` (int), and ``clan`` (``list`` of objects, see below).                
+        :raises API.BrawlhallaPyException:
+            if something went wrong with the request.
+            
+        .. note::
+            The ``clan`` attribute contains a list of all the clan members, each with the following attributes: 
+            ``brawlhalla_id`` (int), ``name`` (str), ``rank`` (str, one of ``Leader``, ``Officer``, or ``Recruit``), 
+            ``join_date`` (datetime), ``xp`` (int).
+                
+        .. note::
+            ``clan_create_date`` and ``join_date`` are both datetime objects from the built-in Python library in 
+             UTC format.
+        """
+        response = await self.__send_request("clan/{}", clan_id)
+
+        if response:
+            response.clan_create_date = datetime.fromtimestamp(response.clan_create_date)
+            for member in response.clan:
+                member.join_date = datetime.fromtimestamp(member.join_date)
+
+        return response
 
     async def get_legend_info(self, legend: Legends):
-        return await self.__send_request("legend/{}", legend.value)
+        """
+        Sends a request to get static information for a legend.
+        
+        :param Legends legend: 
+            An enum value from :class:`API.Legends`.
+        :return: 
+            A :class:`API.Response` object containing legend information.
+        :raises API.BrawlhallaPyException:
+            if something went wrong with the request.
+            
+        .. note::
+            This method serves as a wrapper for the other method with the same name, except it takes an enum value 
+            instead of an integer value. See the other method for more details.
+        """
+        return await self.get_legend_info(legend.value)
 
     async def get_legend_info(self, legend: int):
-        return await self.__send_request("legend/{}", legend)
+        """
+        Sends a request to get static information for a legend.
+        
+        :param int legend:
+            The ID of the legend to get information for.
+        :return: 
+            A :class:`API.Response` object with the following attributes:
+                
+            ``legend_id`` (int) - The ID of the legend.
+                
+            ``legend_name_key`` (str) - The name of the legend.
+                
+            ``bio_name`` (str) - The name of the legend as shown in the bio, usually the same as 
+            :attr:`legend_name_key` except in the cases of special letters, such as bodvar. In that case, this will 
+            be bödvar.
+                
+            ``bio_aka`` (str) - Alternative titles as shown in the legend bio.
+                
+            ``bio_quote`` (str) - A quote from the bio.
+                
+            ``bio_quote_about_attrib`` (str) - 
+                
+            ``bio_quote_from`` (str) - 
+               
+            ``bio_quote_from_attrib`` (str) -
+                
+            ``bio_text`` (str) - Lore for this legend.
+                
+            ``bot_name`` (str) - Bot name for this legend.
+                
+            ``weapon_one`` (str) - The legend's first weapon, see note below.
+                
+            ``weapon_two`` (str) - The legend's second weapon, see note below.
+                
+            ``strength`` (int) - The legend's strength stat.
+                
+            ``dexterity`` (int) - The legend's dexterity stat.
+                
+            ``defense`` (int) - The legend's defense stat.
+                
+            ``speed`` (int) - The legend's speed stat.
+        :raises API.BrawlhallaPyException:
+            if something went wrong with the request.
+            
+        .. note::
+            Weapons are one of ``Hammer``, ``Sword``, ``Axe``, ``RocketLance``, ``Pistol``, ``Katar``, ``Bow``,
+            ``Fists``, or ``Scythe``
+        """
+
+        response = await self.__send_request("legend/{}", legend)
+
+        if response:
+            response.strength = int(response.strength)
+            response.dexterity = int(response.dexterity)
+            response.defense = int(response.defense)
+            response.speed = int(response.speed)
+
+        return response
