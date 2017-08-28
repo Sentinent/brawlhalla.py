@@ -21,8 +21,8 @@ class ClientOptions:
         until it can make more requests. Default value is True.
 
     max_timeout_time : int
-        Max amount of time to wait (in seconds) for a request, default value is 10. If the connection timeout is hit, 
-        the corooutine will return None.
+        Max amount of time to wait (in seconds) for a request, default value is None. If the connection timeout is hit, 
+        the corooutine will return None. Set to None to specify no timeout.
         
     propagate_exceptions : bool
         If True, exceptions will be propagated to the caller, :attr:`ClientOptions.swallow_429` overrides this setting. 
@@ -117,19 +117,43 @@ class BrawlhallaClient:
     async def get_ranked_page(self, bracket, region, page=1, name=None):
         """
         Sends a request to get a ranked page.
-        :param str bracket:
+        
+        :param str bracket: 
             The ranked bracket to get, one of ``1v1`` or ``2v2``.
         :param str region: 
-            The region to get, one of ``us-w``, ``us-e``, ``eu``, ``brz``, ``aus``, ``sea``, or ``all`` for all.
+            The region to get, one of ``US-W``, ``US-E``, ``EU``, ``BRZ``, ``AUS``, ``SEA``, or ``ALL`` for all.
         :param int page: 
             The page number to get, minimum (and default) value is 1.
-        :param str name: The (optional) name to search for.
+        :param str name: 
+            The (optional) name to search for.
         :return: 
-            A ``list`` of ``Response`` objects, each with the following attributes: 
+            A ``list`` of :class:`API.Response` objects, each with the following attributes: 
+            
             ``rank`` (int) - The rank of the player relative to the ``region``.
-            ``name``, ``brawlhalla_id``, ``best_legend``, ``a``, ``a``, 
-            ``a``, ``a``, ``a``, ``a``, ``a``, ``a``, ``a``, ``a``, ``a``.
+            
+            ``name`` (str) - The name of the player.
+            
+            ``brawlhalla_id`` (int) - The Brawlhalla ID of the player.
+            
+            ``best_legend`` (int) - The ID of the player's highest elo legend.
+            
+            ``best_legend_games`` (int) - The number of games on the player's best legend.
+            
+            ``best_legend_wins`` (int) - The number of wins on the player's best legend.
+            
+            ``rating`` (int) - The elo of the playaer.
+            
+            ``tier`` (str) The tier the player is in, see the :ref:`Notes` section for more information.
+            
+            ``games`` (int) - The total number of games played.
+            
+            ``wins`` (int) - The total number of games won.
+            
+            ``region`` (str) - One of ``US-W``, ``US-E``, ``EU``, ``BRZ``, ``AUS``, or ``SEA``.
+            
+            ``peak_rating`` (int) - The highest elo the player has achieved this season.
         """
+
         responses = await self.__send_request("rankings/{}/{}/{}", bracket, region, page, name=name)
 
         #  Post processing, convert the string "rank" attribute into an integer.
@@ -140,10 +164,102 @@ class BrawlhallaClient:
         return responses
 
     async def get_player_stats(self, brawlhalla_id: int):
-        return await self.__send_request("player/{}/stats", brawlhalla_id)
+        """
+        Sends a request to get general stats for a player. All values are total from season 2 and onwards.
+        
+        :param int brawlhalla_id: 
+            The Brawlhalla ID of the player to get information for.
+        :return: 
+            A :class:`API.Response` object of the player, with the following attributes: ``brawlhalla_id`` (int), 
+            ``name`` (str), ``xp`` (int), ``level`` (int), ``xp_percentage`` (int), ``games`` (int), 
+            ``wins`` (int), ``damagebomb`` (int), ``damagemine`` (int), ``damagespikeball`` (int), 
+            ``damagesidekick`` (str), ``hitsnowball`` (int), ``kobomb`` (int), ``komine`` (int), ``kospikeball`` (int), 
+            ``kosidekick`` (int), ``kosnowball`` (int), ``legends`` (``list`` of ``objects``, see below), 
+            and ``clan`` (see below).
+        :raises API.BrawlhallaPyException:
+            if something went wrong with the request.
+        
+        .. note::
+            A ``legend`` object has the following attributes: ``legend_id`` (int), ``legend_name_key`` (str), 
+            ``damagedealt`` (int), ``damagetaken`` (int), ``kos`` (int), ``falls`` (int), ``suicides`` (int), 
+            ``teamkos`` (int), ``matchtime`` (int), ``games`` (int), ``wins`` (int), ``damageunarmed`` (int), 
+            ``damagethrownitem`` (int), ``damageweaponone`` (int), ``damageweapontwo`` (int), ``damagegadgets`` (int), 
+            ``kounarmed`` (int), ``kothrownitem`` (int), ``koweaponone`` (int), ``koweapontwo`` (int), 
+            ``kogadgets`` (int), ``timeheldweaponone`` (int), ``timeheldweapontwo`` (int), ``xp`` (int), 
+            ``level`` (int), and ``xp_percentage`` (int).
+        
+        .. note::
+            A ``clan`` object has the following attributes: ``clan_name`` (str), ``clan_id`` (int), ``clan_xp`` (int), 
+            and ``personal_xp`` (int).
+            
+        .. note::
+            In all the percentage attributes (e.g. ``xp_percentage``), the value is represented as a decimal < 0, 
+            e.g. ``0.84918519``.
+        """
+        response = await self.__send_request("player/{}/stats", brawlhalla_id)
+
+        if response:
+            # Convert string values from the API into integer values.
+            response.damagebomb = int(response.damagebomb)
+            response.damagemine = int(response.damagemine)
+            response.damagespikeball = int(response.damagespikeball)
+            response.damagesidekick = int(response.damagesidekick)
+
+            keys = ["damagedealt", "damagetaken", "damageunarmed", "damagethrownitem", "damageweaponone",
+                    "damageweapontwo", "damagegadgets"]
+            for legend in response.legends:
+                for key in keys:
+                    legend[key] = int(legend[key])
+
+            response.clan["clan_xp"] = int(response.clan["clan_xp"])
+
+        return response
 
     async def get_player_ranked_stats(self, brawlhalla_id: int):
-        return await self.__send_request("player/{}/stats", brawlhalla_id)
+        """
+        Sends a request to get the ranked stats of a player for the current season.
+        
+        :param brawlhalla_id: 
+            The Brawlhalla ID of the player to get information for.
+        :return: 
+            A :class:`API.Response` object with the following attributes: ``name`` (str), ``brawlhalla_id`` (int), 
+            ``rating`` (int), ``peak_rating`` (int), ``tier`` (str, see the :ref:`Notes` section), ``wins`` (int), 
+            ``games`` (int), ``region`` (str), ``global_rank`` (int), ``region_rank`` (int),  
+            ``legends`` (``list`` of ``legend`` objects, see below), and ``2v2`` (``list`` of ``objects``, see below).
+        
+        .. note::
+            Unlike the ``legend`` objects from :func:`BrawlhallaClient.get_player_stats`, the ``legend`` objects from 
+            this endpoint only has the following attributes: ``legend_id`` (int), ``legend_name_key`` (str), 
+            ``rating`` (int), ``peak_rating`` (int), ``tier`` (str, see :ref:`Notes`), ``wins`` (int), 
+            and ``games`` (int).
+        
+        .. note::
+            Due to the nature of Python, you will have to use ``response["2v2"]`` to access the player's 2v2 stats.
+        
+        .. note::
+            The ``2v2`` attribute is a list of team objects with the following attributes: ``brawlhalla_id_one`` (int), 
+            ``brawlhalla_id_two`` (int), ``rating`` (int), ``peak_rating`` (int), ``tier`` (str, see :ref:`Notes`), 
+            ``wins`` (int), ``games`` (int), 
+            ``teamname`` (str, [{name of {brawlhalla_id_one}}+{name of {brawlhalla_id_two}}]), ``region`` (str), 
+            and ``global_rank`` (int).
+        
+        .. warning::
+            The player MUST have played at least 1 game of both ranked 1v1 and 2v2 for this to return properly. This 
+            is a limitation of the Brawlhalla API.
+            
+        .. warning::
+            Currently, the Brawlhalla API always returns ``global_rank`` and ``region_rank`` as 0. This may be fixed 
+            in the future.
+        """
+        response = await self.__send_request("player/{}/ranked", brawlhalla_id)
+
+        if response:
+            #  For this endpoint only, region is returned as an integer.
+            ints_to_regions = dict([(2, "US-E"), (3, "EU"), (4, "SEA"), (5, "BRZ"), (6, "AUS"), (7, "US-W")])
+            for team in response["2v2"]:
+                team.region = ints_to_regions[team.region]
+
+        return response
 
     async def get_clan(self, clan_id: int):
         return await self.__send_request("clan/{}", clan_id)

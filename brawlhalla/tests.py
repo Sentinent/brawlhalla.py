@@ -5,7 +5,7 @@ async def main():
     with open("key.txt", "r") as f:
         client = BrawlhallaClient(f.read())
     player = await client.get_player_ranked_stats(1312150)
-    print(player.name)
+    print(player["2v2"])
 
 
 if __name__ == "__main__":

@@ -76,13 +76,25 @@ class Response:
         if type(data) is list:
             self.responses = [Response(x) for x in data]
         elif type(data) is dict:
+            #  Fix emojis in name
             if "name" in data.keys():
-                #  Fix emojis in name
                 data["name"] = data["name"].encode("raw_unicode_escape").decode("utf-8")
+            elif "teamname" in data.keys():
+                data["teamname"] = data["teamname"].encode("raw_unicode_escape").decode("utf-8")
+
+            if "2v2" in data.keys():
+                self.two_vs_two = data["2v2"]
+
+            for key in data:
+                if type(data[key]) is list:
+                    data[key] = [Response(x) for x in data[key]]
 
             self.__dict__ = data
         else:
             raise NotImplementedError(f"Unsupported data type: {type(data)}")
+
+    def __getitem__(self, item):
+        return self.__dict__[item]
 
 
 class BrawlhallaPyException(Exception):
